@@ -1,0 +1,160 @@
+//@version=6
+indicator("GG Key Open Strategy v1.6", overlay=true, max_boxes_count=500, max_lines_count=500)
+
+// ╔══════════════════════════════════════════════════════╗
+// ║ SECTION 1: INPUTS                                    ║
+// ╚══════════════════════════════════════════════════════╝
+
+// ── Ten Line (Key Open Level) ──
+grpTL       = "Ten Line"
+tlBullColor = input.color(color.red,   "Bullish Level Color", group = grpTL)
+tlBearColor = input.color(color.black, "Bearish Level Color", group = grpTL)
+tlWidth     = input.int(3, "Line Width", minval = 1, maxval = 10, group = grpTL)
+tlStopClose = input.bool(false, "Stop at NY Close (16:00 ET)", group = grpTL)
+
+// ── Rejection Blocks (quality defaults per our definition) ──
+grpRB         = "Rejection Blocks"
+rbPivotLen    = input.int(3, "Swing Strength", minval = 1, maxval = 20, group = grpRB, tooltip = "Bars on each side to confirm a swing. 3 = quality mode. 1 = TakingProphets-style density.")
+rbRequireDir  = input.bool(true, "Require Opposite-Direction Candle", group = grpRB, tooltip = "Bearish block only on a down-closing pivot candle; bullish block only on an up-closing one.")
+rbRequireDisp = input.bool(true, "Require Displacement Confirmation", group = grpRB, tooltip = "Block only survives if price closes beyond the pivot candle's opposite extreme within the window.")
+rbDispWindow  = input.int(3, "Displacement Window (bars)", minval = 1, maxval = 10, group = grpRB)
+rbBullFill    = input.color(color.new(color.red, 80),  "Bullish Block Fill",   group = grpRB)
+rbBullEdge    = input.color(color.red,                 "Bullish Block Border", group = grpRB)
+rbBearFill    = input.color(color.new(color.gray, 80), "Bearish Block Fill",   group = grpRB)
+rbBearEdge    = input.color(color.white,               "Bearish Block Border", group = grpRB)
+rbShowMid     = input.bool(true, "Show 50% Midline", group = grpRB)
+rbRemoveMit   = input.bool(true, "Delete Mitigated Blocks", group = grpRB)
+rbMaxActive   = input.int(50, "Max Active Blocks per Side", minval = 1, maxval = 100, group = grpRB)
+
+// ╔══════════════════════════════════════════════════════╗
+// ║ SECTION 2: TEN LINE                                  ║
+// ╚══════════════════════════════════════════════════════╝
+
+keyCalc() =>
+    var float lvl  = na
+    var bool  bull = false
+    if ta.change(time("D")) != 0
+        lvl := na
+    if hour(time, "America/New_York") == 10 and minute(time, "America/New_York") == 0 and barstate.isconfirmed
+        bull := close > open
+        // Bearish -> TOP of body | Bullish -> BOTTOM of body (v1.6 flip)
+        lvl  := bull ? math.min(open, close) : math.max(open, close)
+    [lvl, bull]
+
+[keyLevel, keyBullish] = request.security(syminfo.tickerid, "5", keyCalc(), lookahead = barmerge.lookahead_off)
+
+tlPastClose = hour(time, "America/New_York") >= 16
+tlPlotLevel = tlStopClose and tlPastClose ? na : keyLevel
+
+plot(tlPlotLevel, title = "Ten Line", color = keyBullish ? tlBullColor : tlBearColor, linewidth = tlWidth, style = plot.style_linebr)
+
+// ╔══════════════════════════════════════════════════════╗
+// ║ SECTION 3: REJECTION BLOCKS — PIVOT-CANDLE ANCHOR    ║
+// ║ Swing candle + wick + opposite-direction close +     ║
+// ║ displacement = block. Each filter is toggleable.     ║
+// ╚══════════════════════════════════════════════════════╝
+
+// ── 3a. Candidate type ──
+type Candidate
+    bool  bearish
+    float wickExtreme
+    float bodyEdge
+    float trigger
+    int   anchorBar
+    int   ttl
+
+// ── 3b. Storage ──
+var array<Candidate> pending = array.new<Candidate>()
+var array<box>  bearBox = array.new_box()
+var array<line> bearMid = array.new_line()
+var array<box>  bullBox = array.new_box()
+var array<line> bullMid = array.new_line()
+
+newBlock(bool bearish, float wickExtreme, float bodyEdge, int anchorBar) =>
+    float top  = bearish ? wickExtreme : bodyEdge
+    float bot  = bearish ? bodyEdge : wickExtreme
+    color edge = bearish ? rbBearEdge : rbBullEdge
+    b = box.new(anchorBar, top, bar_index, bot, bgcolor = bearish ? rbBearFill : rbBullFill, border_color = edge, border_width = 1)
+    m = line.new(anchorBar, (top + bot) / 2, bar_index, (top + bot) / 2, color = color.new(edge, rbShowMid ? 0 : 100), style = line.style_dashed)
+    [b, m]
+
+addBlock(bool bearish, float wickExtreme, float bodyEdge, int anchorBar) =>
+    [b, m] = newBlock(bearish, wickExtreme, bodyEdge, anchorBar)
+    if bearish
+        array.push(bearBox, b)
+        array.push(bearMid, m)
+    else
+        array.push(bullBox, b)
+        array.push(bullMid, m)
+
+// ── 3c. Confirm or expire pending candidates ──
+if barstate.isconfirmed and array.size(pending) > 0
+    for i = array.size(pending) - 1 to 0
+        Candidate c = array.get(pending, i)
+        bool dispConfirmed = c.bearish ? close < c.trigger : close > c.trigger
+        if dispConfirmed
+            addBlock(c.bearish, c.wickExtreme, c.bodyEdge, c.anchorBar)
+            array.remove(pending, i)
+        else
+            c.ttl := c.ttl - 1
+            if c.ttl <= 0
+                array.remove(pending, i)
+
+// ── 3d. Detect swings; apply direction + wick filters ──
+ph = ta.pivothigh(rbPivotLen, rbPivotLen)
+pl = ta.pivotlow(rbPivotLen, rbPivotLen)
+
+if barstate.isconfirmed
+    // Bearish RB: swing high candle, upper wick, closed down (if required)
+    if not na(ph)
+        float pOpen  = open[rbPivotLen]
+        float pClose = close[rbPivotLen]
+        float pTop   = math.max(pOpen, pClose)
+        float pHigh  = high[rbPivotLen]
+        float pLow   = low[rbPivotLen]
+        bool  dirOk  = not rbRequireDir or pClose < pOpen
+        if pHigh > pTop and dirOk
+            if rbRequireDisp
+                array.push(pending, Candidate.new(true, pHigh, pTop, pLow, bar_index - rbPivotLen, rbDispWindow))
+            else
+                addBlock(true, pHigh, pTop, bar_index - rbPivotLen)
+
+    // Bullish RB: swing low candle, lower wick, closed up (if required)
+    if not na(pl)
+        float qOpen  = open[rbPivotLen]
+        float qClose = close[rbPivotLen]
+        float qBot   = math.min(qOpen, qClose)
+        float qLo    = low[rbPivotLen]
+        float qHi    = high[rbPivotLen]
+        bool  dirOk2 = not rbRequireDir or qClose > qOpen
+        if qLo < qBot and dirOk2
+            if rbRequireDisp
+                array.push(pending, Candidate.new(false, qLo, qBot, qHi, bar_index - rbPivotLen, rbDispWindow))
+            else
+                addBlock(false, qLo, qBot, bar_index - rbPivotLen)
+
+// ── 3e. Extend active blocks, retire mitigated ones ──
+manage(array<box> boxes, array<line> mids, bool bearish) =>
+    if array.size(boxes) > 0
+        for i = array.size(boxes) - 1 to 0
+            box  b = array.get(boxes, i)
+            line m = array.get(mids, i)
+            box.set_right(b, bar_index)
+            line.set_x2(m, bar_index)
+            bool mitigated = bearish ? close > box.get_top(b) : close < box.get_bottom(b)
+            if barstate.isconfirmed and mitigated
+                if rbRemoveMit
+                    box.delete(b)
+                    line.delete(m)
+                array.remove(boxes, i)
+                array.remove(mids, i)
+    while array.size(boxes) > rbMaxActive
+        box.delete(array.shift(boxes))
+        line.delete(array.shift(mids))
+
+manage(bearBox, bearMid, true)
+manage(bullBox, bullMid, false)
+
+// ╔══════════════════════════════════════════════════════╗
+// ║ SECTION 4: ENTRY LOGIC (reserved)                    ║
+// ╚══════════════════════════════════════════════════════╝
