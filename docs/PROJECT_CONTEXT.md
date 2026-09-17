@@ -58,7 +58,24 @@ Read this first when picking up the project in a new chat.
 - `keyBullish` persists overnight until the next 10:00 candle, so pre-10:00
   color reflects the prior day's direction.
 
-## Section 4 — Entry Triggers (settled in v1.7)
+## Section 4 — Entry Triggers: v2.3 model (CURRENT)
+Default trigger is now "EMA Bias (from Key Open)" — the line-touch rejection
+is NO LONGER the default entry (Kaptain/Brandon, Sep 17: too many executions,
+want max two deliberate trades/day).
+1. Window unchanged: key candle prints at 10:00 ET -> 18:00 ET session roll.
+2. Once the key open is live, trade the EMA stack direction: 9 < 20 -> short,
+   9 > 20 -> long. Both directions arm at the day roll; an entry CONSUMES its
+   direction; only a fresh EMA cross back into it re-arms. No touch-of-line
+   requirement.
+3. Alternate trigger (toggle, default ON): a rejection block CONFIRMING inside
+   the window fires an entry in the block's direction, independent of the EMAs
+   (his "either the rejection block forms or the EMAs point that way").
+4. Max Trades per Day default raised 1 -> 2.
+5. Legacy line-touch rejection kept behind the Entry Trigger dropdown for A/B;
+   everything below describes that legacy mode.
+6. Fallback stop = the SIGNAL candle's own wick extreme (was: rejection candle).
+
+## Section 4 — legacy Line Rejection trigger (pre-v2.3, kept selectable)
 
 Directed by Brandon (collaborator). The script is now `strategy()` (was
 `indicator()`), with `process_orders_on_close = true` so market entries fill at
