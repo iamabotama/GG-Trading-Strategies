@@ -1,5 +1,5 @@
 //@version=6
-strategy("GG Key Open Strategy v1.7", overlay = true, max_boxes_count = 500, max_lines_count = 500, initial_capital = 100000, default_qty_type = strategy.fixed, default_qty_value = 1, process_orders_on_close = true, calc_on_every_tick = false)
+strategy("GG Key Open Strategy v1.7.1", overlay = true, max_boxes_count = 500, max_lines_count = 500, initial_capital = 100000, default_qty_type = strategy.fixed, default_qty_value = 1, process_orders_on_close = true, calc_on_every_tick = false)
 
 // ╔══════════════════════════════════════════════════════╗
 // ║ SECTION 1: INPUTS                                    ║
@@ -213,6 +213,8 @@ var line tgtLn  = na
 bool firedShort = false
 bool firedLong  = false
 
+// Pine can't assign globals inside a function, so enterTrade RETURNS the
+// stop/target lines and the caller assigns them at global scope.
 enterTrade(bool isShort, float stopP) =>
     float entryP = close                       // market fill at this bar's close (process_orders_on_close)
     float risk   = math.abs(stopP - entryP)
@@ -220,21 +222,25 @@ enterTrade(bool isShort, float stopP) =>
     string id    = isShort ? "Short" : "Long"
     strategy.entry(id, isShort ? strategy.short : strategy.long)
     strategy.exit(id + " X", from_entry = id, stop = stopP, limit = tgtP)
-    if enShowLines
-        stopLn := line.new(bar_index, stopP, bar_index + 1, stopP, color = enStopColor, width = 2)
-        tgtLn  := line.new(bar_index, tgtP,  bar_index + 1, tgtP,  color = enTgtColor,  width = 2)
+    line sL = enShowLines ? line.new(bar_index, stopP, bar_index + 1, stopP, color = enStopColor, width = 2) : na
+    line tL = enShowLines ? line.new(bar_index, tgtP,  bar_index + 1, tgtP,  color = enTgtColor,  width = 2) : na
+    [sL, tL]
 
 if canEnter and rejShort and gateShort
     float stopP = getStop(true)
     if not na(stopP) and stopP > close         // stop must sit above a short entry
-        enterTrade(true, stopP)
+        [sL, tL] = enterTrade(true, stopP)
+        stopLn := sL
+        tgtLn  := tL
         tradesToday += 1
         firedShort := true
 
 if canEnter and rejLong and gateLong
     float stopP = getStop(false)
     if not na(stopP) and stopP < close         // stop must sit below a long entry
-        enterTrade(false, stopP)
+        [sL, tL] = enterTrade(false, stopP)
+        stopLn := sL
+        tgtLn  := tL
         tradesToday += 1
         firedLong := true
 
