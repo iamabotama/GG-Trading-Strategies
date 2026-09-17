@@ -88,6 +88,16 @@ the signal bar's close.
   original side. Confirm with him if shorts should additionally require a
   down-closing candle.
 
+## Active experiment: 1m vs 5m execution (Brandon, Sep 16)
+
+Same v1.9 script loaded on a 1m chart vs a 5m chart; compare Strategy Tester
+reports. No code change needed — the ten line is pinned to the 5m feed, all
+other logic follows the chart timeframe. Caveats: on 1m, rejection blocks and
+pivots become 1m structures (Swing Strength 3 = 3 min/side) so stop placement
+shifts, and far more rejections fire against the daily trade cap. If 1m looks
+promising, planned v2.0 = 1m execution with blocks still anchored to the 5m
+feed for a cleaner apples-to-apples.
+
 ## Working agreement
 
 - Iterate on ONE complete script; deliver the FULL file every time.
