@@ -4,7 +4,7 @@ Pine Script (v6) indicators and strategies for TradingView, built iteratively wi
 
 ## Current master script
 
-**`indicators/gg-key-open-strategy.pine`** — v2.0
+**`indicators/gg-key-open-strategy.pine`** — v2.1
 
 Components:
 - **Ten Line** (v2.0) — pure interest point, no bias semantics. Level = the

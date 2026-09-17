@@ -30,6 +30,10 @@ Read this first when picking up the project in a new chat.
 ## EMA Bias (v2.0)
 
 - Fast EMA 9 / Slow EMA 20, chart-timeframe candles, both plotted.
+- v2.1: visuals mirror the user's standalone "Adjustable EMA Cross"
+  indicator so it can be removed — fast = maroon, slow = black, width 2,
+  white BUY label below bar on crossover / white SELL label above bar on
+  crossunder (all inputs). Labels are visual only; the gate is the stack.
 - Gate (default ON): shorts only when fast < slow; longs only when
   fast > slow. Replaces the old line-color bias gate, which was REMOVED.
 - NOTE: Brandon's spoken spec said "20 crosses down over the 9 -> short",
