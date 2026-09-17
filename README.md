@@ -28,3 +28,5 @@ Components:
 
 - `docs/PROJECT_CONTEXT.md` — full project state, decisions made, open questions.
   Start here when picking up the project fresh.
+ghp_
+PMVyxRicvr7EvS6FnSimDN0NLSqBtx4OYw3p
