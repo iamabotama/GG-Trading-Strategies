@@ -58,7 +58,21 @@ Read this first when picking up the project in a new chat.
 - `keyBullish` persists overnight until the next 10:00 candle, so pre-10:00
   color reflects the prior day's direction.
 
-## Section 4 — Entry Triggers: v2.3 model (CURRENT)
+## Section 4 — Entry Triggers: v2.4 model (CURRENT)
+Default trigger is "Pre-Line Block + Bias" (Kaptain, Sep 17):
+1. On the bar the 10:00 ET key open prints, check ONCE: does an unmitigated
+   rejection block already exist on the EMA bias side? (9 < 20 needs a bearish
+   block, 9 > 20 a bullish one.) No qualifying block -> NO trades that day.
+2. Qualified day trades only in that direction, entries while flat + bias
+   still agreeing, from key open until the 18:00 ET roll. Max 2/day.
+3. Stop = qualifying block's far edge (top of bearish for shorts, bottom of
+   bullish for longs), SNAPSHOTTED at line birth so mitigation/deletion of the
+   box never moves it. Stop Source input is ignored in this mode. Wick
+   fallback still applies if the level ends up on the wrong side of entry.
+4. Both v2.3 "EMA Bias (from Key Open)" and legacy "Line Rejection" remain in
+   the Entry Trigger dropdown for A/B.
+
+## Section 4 — v2.3 model (kept selectable)
 Default trigger is now "EMA Bias (from Key Open)" — the line-touch rejection
 is NO LONGER the default entry (Kaptain/Brandon, Sep 17: too many executions,
 want max two deliberate trades/day).
