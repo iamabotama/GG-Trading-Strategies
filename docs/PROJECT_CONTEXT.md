@@ -45,10 +45,16 @@ Directed by Brandon (collaborator). The script is now `strategy()` (was
 `indicator()`), with `process_orders_on_close = true` so market entries fill at
 the signal bar's close.
 
-1. Signal = rejection of the ten line on a confirmed 5m candle:
-   - Short: `open < line`, `high >= line`, `close < line` (came from below,
-     wick pierced, closed back below).
+1. Signal = rejection of the ten line on a confirmed 5m candle (v1.9):
+   - Short: `high >= line` and `close < line` — wick reached the line, closed
+     on the rejected side. Includes break-and-fail candles that OPEN above.
    - Long: mirror.
+   - "Strict Rejection" input (default OFF) additionally requires the candle
+     to open on the origin side (the v1.7/v1.8 behavior, which produced far
+     fewer signals and made whole sessions look empty).
+   - REMINDER: the line dies at the 18:00 ET session roll (3:00 PM on the
+     user's Pacific axis). Evening retests of the level never signal. Open
+     question for Brandon: should the line stay tradeable past the roll?
 2. Bias gate (input, default ON): shorts only on a bearish line, longs only on
    a bullish line.
 3. Stop = far edge of the most recently CREATED unmitigated same-side rejection
