@@ -33,24 +33,49 @@ Read this first when picking up the project in a new chat.
 - A box drawn at the key candle (high-to-low) was explicitly REMOVED — user does not want it.
 - Lime/green colors clash with the user's scheme — use red/black.
 
-## Known quirks in current v1.6 (accepted for now, not yet fixed)
+## Known quirks (accepted, unchanged in v1.7)
 
 - `ta.change(time("D"))` rolls at futures session start (18:00 ET), not midnight.
 - `keyBullish` persists overnight until the next 10:00 candle, so pre-10:00
   color reflects the prior day's direction.
 
-## Open / planned work (Section 4)
+## Section 4 — Entry Triggers (settled in v1.7)
 
-Position box based on the key open, discussed but NOT yet built:
+Directed by Brandon (collaborator). The script is now `strategy()` (was
+`indicator()`), with `process_orders_on_close = true` so market entries fill at
+the signal bar's close.
 
-- Direction: bearish key open → short setup; bullish → long setup.
-- The **entry line** of the position tool sits exactly ON the ten line.
-- Ratio: **6 : 1** (reward : risk). Long = reward above / risk below; short mirrored.
-- UNRESOLVED: what defines 1 unit (the stop distance). Options discussed:
-  fixed points, candle-derived, ATR-based, fixed dollar risk (~$750/trade
-  appeared in the user's manual position tools with floating quantity).
-- Pine cannot draw TradingView's native long/short position tool; will be
-  replicated with boxes + lines, and/or real strategy orders.
+1. Signal = rejection of the ten line on a confirmed 5m candle:
+   - Short: `open < line`, `high >= line`, `close < line` (came from below,
+     wick pierced, closed back below).
+   - Long: mirror.
+2. Bias gate (input, default ON): shorts only on a bearish line, longs only on
+   a bullish line.
+3. Stop = far edge of the most recently CREATED unmitigated same-side rejection
+   block (top of bearish block for shorts, bottom of bullish for longs).
+   Price is SNAPSHOTTED at entry — the block object may be deleted mid-trade.
+   No valid block on the correct side of entry -> trade is skipped.
+4. Target = Reward:Risk input (default **5.0** — supersedes the earlier 6:1
+   discussion) measured from the actual fill.
+5. Max trades per day input (default 1); counter rolls with `time("D")`
+   (18:00 ET session start, same quirk as the line).
+6. Open trade is flattened at day roll (input, default ON).
+7. Visuals kept: entry triangles + stop (orange) / target (teal) lines that
+   extend while the trade is open.
+
+### Known deliberate compromises (v1.7)
+
+- Brandon described the WICK itself as the entry ("that wick would then enter
+  the trade"). A resting limit at the line would also fill on candles that
+  break THROUGH, so v1.7 enters at market on the close of the confirmed
+  rejection candle instead. Entry price = signal close, not the line. Revisit
+  if fills look too far from the line.
+- Risk is measured entry->stop from the actual fill, so the 5:1 distance moves
+  with the fill, not the line.
+- Brandon's transcript said "red candle" for the short setup (red = bullish on
+  this chart). Interpreted as: any candle that wicks in and closes back on its
+  original side. Confirm with him if shorts should additionally require a
+  down-closing candle.
 
 ## Working agreement
 

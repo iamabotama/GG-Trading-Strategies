@@ -4,7 +4,7 @@ Pine Script (v6) indicators and strategies for TradingView, built iteratively wi
 
 ## Current master script
 
-**`indicators/gg-key-open-strategy.pine`** — v1.6
+**`indicators/gg-key-open-strategy.pine`** — v1.7
 
 Components:
 - **Ten Line** — horizontal level from the 10:00 AM ET (key open) 5-minute candle.
@@ -15,7 +15,11 @@ Components:
   - Optional hard stop at 16:00 ET (off by default)
 - **Rejection Blocks** — pivot-candle-anchored supply/demand boxes with
   toggleable direction and displacement filters.
-- **Section 4** — reserved for entry logic (position box / strategy orders), not yet built.
+- **Section 4** — entry triggers with simulated orders (v1.7). The script is now
+  a `strategy()`: a rejection of the ten line (wick pierces, close back on the
+  original side, confirmed 5m close) fires a market entry. Stop = most recent
+  unmitigated same-side rejection block (far edge); target = Reward:Risk (default
+  5:1) from entry. No valid block, no trade. Backtest via the Strategy Tester.
 
 ## Workflow
 

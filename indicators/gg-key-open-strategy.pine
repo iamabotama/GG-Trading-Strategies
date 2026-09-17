@@ -1,5 +1,5 @@
 //@version=6
-indicator("GG Key Open Strategy v1.6", overlay=true, max_boxes_count=500, max_lines_count=500)
+strategy("GG Key Open Strategy v1.7", overlay = true, max_boxes_count = 500, max_lines_count = 500, initial_capital = 100000, default_qty_type = strategy.fixed, default_qty_value = 1, process_orders_on_close = true, calc_on_every_tick = false)
 
 // ╔══════════════════════════════════════════════════════╗
 // ║ SECTION 1: INPUTS                                    ║
@@ -25,6 +25,17 @@ rbBearEdge    = input.color(color.white,               "Bearish Block Border", g
 rbShowMid     = input.bool(true, "Show 50% Midline", group = grpRB)
 rbRemoveMit   = input.bool(true, "Delete Mitigated Blocks", group = grpRB)
 rbMaxActive   = input.int(50, "Max Active Blocks per Side", minval = 1, maxval = 100, group = grpRB)
+
+// ── Entry Triggers (Section 4) ──
+grpEN        = "Entry Triggers"
+enOn         = input.bool(true,  "Enable Entry Triggers", group = grpEN)
+enBiasGate   = input.bool(true,  "Line Bias Gates Direction", group = grpEN, tooltip = "ON: shorts only on a bearish ten line, longs only on a bullish one. OFF: direction decided purely by which side price rejects from.")
+enRR         = input.float(5.0,  "Reward : Risk", minval = 0.5, step = 0.5, group = grpEN)
+enMaxPerDay  = input.int(1, "Max Trades per Day", minval = 1, maxval = 10, group = grpEN)
+enFlattenEOD = input.bool(true,  "Flatten Open Trade at Day Roll", group = grpEN, tooltip = "Closes any open position when the futures session rolls to a new day.")
+enShowLines  = input.bool(true,  "Draw Stop / Target Lines", group = grpEN)
+enStopColor  = input.color(color.orange, "Stop Line Color",   group = grpEN)
+enTgtColor   = input.color(color.teal,   "Target Line Color", group = grpEN)
 
 // ╔══════════════════════════════════════════════════════╗
 // ║ SECTION 2: TEN LINE                                  ║
@@ -156,5 +167,81 @@ manage(bearBox, bearMid, true)
 manage(bullBox, bullMid, false)
 
 // ╔══════════════════════════════════════════════════════╗
-// ║ SECTION 4: ENTRY LOGIC (reserved)                    ║
+// ║ SECTION 4: ENTRY TRIGGERS + SIMULATED ORDERS         ║
+// ║ Rejection of the ten line -> strategy order.         ║
+// ║ Stop = most recent unmitigated same-side block.      ║
+// ║ Target = Reward:Risk from entry. No block, no trade. ║
 // ╚══════════════════════════════════════════════════════╝
+
+// ── 4a. Daily trade counter (rolls with the futures session, same as the line) ──
+var int tradesToday = 0
+bool newDay = ta.change(time("D")) != 0
+if newDay
+    tradesToday := 0
+
+// ── 4b. Flatten at day roll (before any new entry logic runs) ──
+if enFlattenEOD and newDay and strategy.position_size != 0
+    strategy.close_all(comment = "Day roll")
+
+// ── 4c. Stop lookup: most recently created unmitigated same-side block, far edge ──
+// Section 3e has already pruned mitigated blocks this bar, so the last array
+// element is the most recent surviving block. Snapshot the price here — the
+// block object itself may be deleted later while the trade is still open.
+getStop(bool forShort) =>
+    float s = na
+    if forShort and array.size(bearBox) > 0
+        s := box.get_top(array.get(bearBox, array.size(bearBox) - 1))
+    if not forShort and array.size(bullBox) > 0
+        s := box.get_bottom(array.get(bullBox, array.size(bullBox) - 1))
+    s
+
+// ── 4d. Rejection signals on the confirmed 5m close ──
+// Short: candle comes from below, wick pierces the line, close back below it.
+// Long:  mirror. Line must be active (respects the 16:00 stop toggle).
+bool lineActive = not na(tlPlotLevel)
+bool rejShort   = lineActive and open < keyLevel and high >= keyLevel and close < keyLevel
+bool rejLong    = lineActive and open > keyLevel and low  <= keyLevel and close > keyLevel
+
+bool gateShort = not enBiasGate or not keyBullish
+bool gateLong  = not enBiasGate or keyBullish
+
+bool canEnter = enOn and barstate.isconfirmed and strategy.position_size == 0 and tradesToday < enMaxPerDay
+
+// ── 4e. Trade state for drawings ──
+var line stopLn = na
+var line tgtLn  = na
+bool firedShort = false
+bool firedLong  = false
+
+enterTrade(bool isShort, float stopP) =>
+    float entryP = close                       // market fill at this bar's close (process_orders_on_close)
+    float risk   = math.abs(stopP - entryP)
+    float tgtP   = isShort ? entryP - enRR * risk : entryP + enRR * risk
+    string id    = isShort ? "Short" : "Long"
+    strategy.entry(id, isShort ? strategy.short : strategy.long)
+    strategy.exit(id + " X", from_entry = id, stop = stopP, limit = tgtP)
+    if enShowLines
+        stopLn := line.new(bar_index, stopP, bar_index + 1, stopP, color = enStopColor, width = 2)
+        tgtLn  := line.new(bar_index, tgtP,  bar_index + 1, tgtP,  color = enTgtColor,  width = 2)
+
+if canEnter and rejShort and gateShort
+    float stopP = getStop(true)
+    if not na(stopP) and stopP > close         // stop must sit above a short entry
+        enterTrade(true, stopP)
+        tradesToday += 1
+        firedShort := true
+
+if canEnter and rejLong and gateLong
+    float stopP = getStop(false)
+    if not na(stopP) and stopP < close         // stop must sit below a long entry
+        enterTrade(false, stopP)
+        tradesToday += 1
+        firedLong := true
+
+// ── 4f. Extend stop/target lines while the trade is open ──
+if strategy.position_size != 0 and not na(stopLn)
+    line.set_x2(stopLn, bar_index)
+    line.set_x2(tgtLn,  bar_index)
+
+plotshape(firedShort, title = "Short Entry", style = shape.triangledown, location = location.abovebar, color = color.black, size = size.small, text = "SHORT")
+plotshape(firedLong,  title = "Long Entry",  style = shape.triangleup,   location = location.belowbar, color = color.red,   size = size.small, text = "LONG")
