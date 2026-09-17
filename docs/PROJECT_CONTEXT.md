@@ -10,18 +10,33 @@ Read this first when picking up the project in a new chat.
 - **Candle colors are non-default: RED = bullish, BLACK = bearish**
   (this has caused confusion before — do not assume green/red)
 
-## The "Ten Line" (key open level) — settled behavior
+## The "Ten Line" (key open level) — v2.0 behavior
 
-1. Key candle = the **10:00 AM Eastern** 5-minute candle
-   (appears as 07:00 on the user's Pacific axis).
-2. Line level (as of v1.6):
-   - **Bearish** key candle → **top of body** (= open)
-   - **Bullish** key candle → **bottom of body** (= open)
-   - Both cases equal the candle's OPEN price. Body edges only, never wicks.
-3. Line color matches the candle: red bullish, black bearish.
-4. One independent line per day. Days must never connect to each other.
-5. Implemented via `request.security(…, "5", …)` + `plot(…, style_linebr)`,
-   so it renders on any chart timeframe.
+1. Key candle = the **10:00 AM Eastern** 5-minute candle (07:00 Pacific).
+2. Level = the key candle's **OPEN**. The line carries NO bias/direction
+   meaning (v2.0 — Brandon: bias is the trader's call or the EMA gate's;
+   the line is just the interest point trades execute from).
+3. Drawn as ONE time-anchored `line.new` per day, `xloc.bar_time`, created
+   once when the level first prints and never modified afterward — stable
+   under pan/resize/candle formation. A line object is REQUIRED because the
+   span starts at 9:30 ET, before the key candle exists; plots can't paint
+   backward.
+4. Default span 9:30 AM ET -> 12:30 AM ET (6:30 AM -> 9:30 PM Pacific),
+   hour/minute inputs. Single color input (default yellow), width input.
+5. ENTRY WINDOW is narrower than the drawn span: the level is live for
+   signals from the key candle until the 18:00 ET session roll only.
+6. The 16:00 ET stop toggle was removed in v2.0 (superseded by the span).
+
+## EMA Bias (v2.0)
+
+- Fast EMA 9 / Slow EMA 20, chart-timeframe candles, both plotted.
+- Gate (default ON): shorts only when fast < slow; longs only when
+  fast > slow. Replaces the old line-color bias gate, which was REMOVED.
+- NOTE: Brandon's spoken spec said "20 crosses down over the 9 -> short",
+  which is inverted; implemented the standard reading consistent with his
+  long-side sentence (9 over 20 -> long). Flagged to him in chat.
+- EMAs follow the chart TF, so the 1m and 5m charts have different bias —
+  relevant to the 1m-vs-5m experiment. 5m-locked EMAs = possible follow-up.
 
 ## History of corrections (avoid re-introducing)
 

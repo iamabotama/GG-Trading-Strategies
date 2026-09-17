@@ -4,15 +4,16 @@ Pine Script (v6) indicators and strategies for TradingView, built iteratively wi
 
 ## Current master script
 
-**`indicators/gg-key-open-strategy.pine`** — v1.9
+**`indicators/gg-key-open-strategy.pine`** — v2.0
 
 Components:
-- **Ten Line** — horizontal level from the 10:00 AM ET (key open) 5-minute candle.
-  - Bearish key candle → line at **top of body** (black by default)
-  - Bullish key candle → line at **bottom of body** (red by default)
-  - Colors match the user's chart scheme: **red = bullish, black = bearish**
-  - Works on any chart timeframe via `request.security` on the 5m feed
-  - Optional hard stop at 16:00 ET (off by default)
+- **Ten Line** (v2.0) — pure interest point, no bias semantics. Level = the
+  OPEN of the 10:00 AM ET 5-minute candle, drawn as one time-anchored line per
+  day spanning 9:30 AM ET -> 12:30 AM ET by default (configurable), single
+  color input. Works on any chart timeframe via `request.security` on 5m.
+- **EMA Bias** (v2.0) — 9/20 EMAs on chart candles, plotted; the EMA stack
+  gates trade direction (fast below slow = shorts only, fast above slow =
+  longs only). Replaces the old line-color bias gate.
 - **Rejection Blocks** — pivot-candle-anchored supply/demand boxes with
   toggleable direction and displacement filters.
 - **Section 4** — entry triggers with simulated orders (v1.7). The script is now
