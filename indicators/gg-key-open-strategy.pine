@@ -1,5 +1,5 @@
 //@version=6
-strategy("GG Key Open Strategy v1.7.1", overlay = true, max_boxes_count = 500, max_lines_count = 500, initial_capital = 100000, default_qty_type = strategy.fixed, default_qty_value = 1, process_orders_on_close = true, calc_on_every_tick = false)
+strategy("GG Key Open Strategy v1.8", overlay = true, max_boxes_count = 500, max_lines_count = 500, initial_capital = 100000, default_qty_type = strategy.fixed, default_qty_value = 1, process_orders_on_close = true, calc_on_every_tick = false)
 
 // ╔══════════════════════════════════════════════════════╗
 // ║ SECTION 1: INPUTS                                    ║
@@ -33,6 +33,8 @@ enBiasGate   = input.bool(true,  "Line Bias Gates Direction", group = grpEN, too
 enRR         = input.float(5.0,  "Reward : Risk", minval = 0.5, step = 0.5, group = grpEN)
 enMaxPerDay  = input.int(1, "Max Trades per Day", minval = 1, maxval = 10, group = grpEN)
 enFlattenEOD = input.bool(true,  "Flatten Open Trade at Day Roll", group = grpEN, tooltip = "Closes any open position when the futures session rolls to a new day.")
+enFallback   = input.bool(true,  "Fallback Stop: Rejection Wick", group = grpEN, tooltip = "When no valid rejection block exists, place the stop at the rejection candle's own wick extreme instead of skipping the trade.")
+enShowRej    = input.bool(true,  "Mark All Line Rejections", group = grpEN, tooltip = "Small gray x on every line rejection, even when no trade fires — shows where the line was tested across history.")
 enShowLines  = input.bool(true,  "Draw Stop / Target Lines", group = grpEN)
 enStopColor  = input.color(color.orange, "Stop Line Color",   group = grpEN)
 enTgtColor   = input.color(color.teal,   "Target Line Color", group = grpEN)
@@ -228,6 +230,8 @@ enterTrade(bool isShort, float stopP) =>
 
 if canEnter and rejShort and gateShort
     float stopP = getStop(true)
+    if (na(stopP) or stopP <= close) and enFallback
+        stopP := high                          // fallback: rejection candle's wick extreme
     if not na(stopP) and stopP > close         // stop must sit above a short entry
         [sL, tL] = enterTrade(true, stopP)
         stopLn := sL
@@ -237,6 +241,8 @@ if canEnter and rejShort and gateShort
 
 if canEnter and rejLong and gateLong
     float stopP = getStop(false)
+    if (na(stopP) or stopP >= close) and enFallback
+        stopP := low                           // fallback: rejection candle's wick extreme
     if not na(stopP) and stopP < close         // stop must sit below a long entry
         [sL, tL] = enterTrade(false, stopP)
         stopLn := sL
@@ -249,5 +255,7 @@ if strategy.position_size != 0 and not na(stopLn)
     line.set_x2(stopLn, bar_index)
     line.set_x2(tgtLn,  bar_index)
 
+plotshape(enShowRej and rejShort and barstate.isconfirmed, title = "Line Rejection (short side)", style = shape.xcross, location = location.abovebar, color = color.gray, size = size.tiny)
+plotshape(enShowRej and rejLong  and barstate.isconfirmed, title = "Line Rejection (long side)",  style = shape.xcross, location = location.belowbar, color = color.gray, size = size.tiny)
 plotshape(firedShort, title = "Short Entry", style = shape.triangledown, location = location.abovebar, color = color.black, size = size.small, text = "SHORT")
 plotshape(firedLong,  title = "Long Entry",  style = shape.triangleup,   location = location.belowbar, color = color.red,   size = size.small, text = "LONG")

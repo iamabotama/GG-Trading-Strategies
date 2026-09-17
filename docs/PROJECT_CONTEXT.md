@@ -54,7 +54,12 @@ the signal bar's close.
 3. Stop = far edge of the most recently CREATED unmitigated same-side rejection
    block (top of bearish block for shorts, bottom of bullish for longs).
    Price is SNAPSHOTTED at entry — the block object may be deleted mid-trade.
-   No valid block on the correct side of entry -> trade is skipped.
+   v1.8: if no valid block exists (or its edge is on the wrong side of entry),
+   the stop FALLS BACK to the rejection candle's own wick extreme (input,
+   default ON). With fallback OFF, no block -> trade skipped.
+   v1.8 also marks every raw line rejection with a tiny gray x (input, default
+   ON) so skipped setups are visible across history — the v1.7 no-block rule
+   was silently eating most historical trades.
 4. Target = Reward:Risk input (default **5.0** — supersedes the earlier 6:1
    discussion) measured from the actual fill.
 5. Max trades per day input (default 1); counter rolls with `time("D")`

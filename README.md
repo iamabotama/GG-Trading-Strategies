@@ -4,7 +4,7 @@ Pine Script (v6) indicators and strategies for TradingView, built iteratively wi
 
 ## Current master script
 
-**`indicators/gg-key-open-strategy.pine`** — v1.7.1
+**`indicators/gg-key-open-strategy.pine`** — v1.8
 
 Components:
 - **Ten Line** — horizontal level from the 10:00 AM ET (key open) 5-minute candle.
