@@ -76,8 +76,12 @@ the signal bar's close.
      question for Brandon: should the line stay tradeable past the roll?
 2. Bias gate (input, default ON): shorts only on a bearish line, longs only on
    a bullish line.
-3. Stop = far edge of the most recently CREATED unmitigated same-side rejection
-   block (top of bearish block for shorts, bottom of bullish for longs).
+3. Stop, per "Stop Source" input (v2.2):
+   - Swing High/Low (DEFAULT since v2.2, Brandon's request): last CONFIRMED
+     pivot per Swing Strength — short stop at last swing high, long stop at
+     last swing low. Non-repainting (confirms rbPivotLen bars late).
+   - Rejection Block: far edge of the most recently CREATED unmitigated
+     same-side block (top of bearish for shorts, bottom of bullish for longs).
    Price is SNAPSHOTTED at entry — the block object may be deleted mid-trade.
    v1.8: if no valid block exists (or its edge is on the wrong side of entry),
    the stop FALLS BACK to the rejection candle's own wick extreme (input,
